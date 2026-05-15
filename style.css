@@ -1,0 +1,142 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #0c2d3f 0%, #1a5f6e 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.container {
+    background: rgba(255,255,255,0.96);
+    border-radius: 28px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+    padding: 40px;
+    width: 100%;
+    max-width: 700px;
+    animation: fadeIn 0.4s ease;
+    backdrop-filter: blur(2px);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-25px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+h1 {
+    text-align: center;
+    color: #0c4e5c;
+    margin-bottom: 25px;
+    font-size: 2.1em;
+    font-weight: 700;
+}
+
+h2 {
+    text-align: center;
+    color: #1a5f6e;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    margin-bottom: 22px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #1a5f6e;
+    font-weight: 600;
+}
+
+input {
+    width: 100%;
+    padding: 13px 16px;
+    border: 2px solid #cbd5e1;
+    border-radius: 16px;
+    font-size: 16px;
+    transition: all 0.2s;
+    background: white;
+}
+
+input:focus {
+    outline: none;
+    border-color: #2c8b6e;
+    box-shadow: 0 0 0 3px rgba(44,139,110,0.2);
+}
+
+button {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(95deg, #1e6b5e 0%, #2c8b6e 100%);
+    color: white;
+    border: none;
+    border-radius: 40px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 8px;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.02);
+    box-shadow: 0 7px 14px rgba(0,0,0,0.15);
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+.error-message {
+    background: #ffe5e5;
+    color: #c7362b;
+    padding: 12px;
+    border-radius: 18px;
+    margin-bottom: 20px;
+    text-align: center;
+    border-left: 5px solid #c7362b;
+    font-weight: 500;
+}
+
+.success-message {
+    background: #dff3e8;
+    color: #1e7b48;
+    padding: 12px;
+    border-radius: 18px;
+    margin-bottom: 20px;
+    text-align: center;
+    border-left: 5px solid #1e7b48;
+}
+
+.hidden {
+    display: none;
+}
+
+.link {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.link a {
+    color: #1e6b5e;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.link a:hover {
+    text-decoration: underline;
+}

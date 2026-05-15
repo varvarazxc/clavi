@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - Тренажер</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>🔐 Вход в тренажер</h1>
+    <div id="errorMessage" class="error-message hidden"></div>
+
+    <div class="input-group">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="ваш email">
+    </div>
+
+    <div class="input-group">
+        <label>Пароль</label>
+        <input type="password" id="password" placeholder="пароль">
+    </div>
+
+    <button onclick="login()">Войти</button>
+
+    <div class="link">
+        Нет аккаунта? <a href="register.html">Создать</a>
+    </div>
+</div>
+
+<script src="firebase-config.js"></script>
+<script>
+    let failedAttempts = 0;
+    let blockUntil = 0;
+
+    async function login() {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const errorDiv = document.getElementById('errorMessage');
+
+        errorDiv.classList.add('hidden');
+
+        if (!email || !password) {
+            errorDiv.textContent = 'Заполните email и пароль';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        if (Date.now() < blockUntil) {
+            const secondsLeft = Math.ceil((blockUntil - Date.now()) / 1000);
+            errorDiv.textContent = `⛔ Слишком много попыток. Подождите ${secondsLeft} сек.`;
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        const btn = document.querySelector('button');
+        btn.disabled = true;
+        btn.textContent = '⏳ Вход...';
+
+        try {
+            await auth.signInWithEmailAndPassword(email, password);
+   
+            const user = auth.currentUser;
+            if (user) {
+                await db.collection('users').doc(user.uid).update({
+                    lastLogin: new Date()
+                }).catch(() => {});
+            }
+            window.location.href = 'game.html';
+        } catch (error) {
+            failedAttempts++;
+            if (failedAttempts >= 5) {
+                blockUntil = Date.now() + 30000;
+                errorDiv.textContent = '⚠️ Много неудачных входов. Блокировка 30 секунд.';
+                failedAttempts = 0;
+            } else {
+                errorDiv.textContent = `❌ Неверный email или пароль. Осталось попыток: ${5 - failedAttempts}`;
+            }
+            errorDiv.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = 'Войти';
+        }
+    }
+</script>
+</body>
+</html>

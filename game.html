@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игра - Клавиатурный тренажер</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        .game-container { max-width: 950px; }
+        
+        /* Кнопка профиля */
+        .profile-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.5);
+            width: auto;
+            padding: 8px 18px;
+            margin: 0;
+            font-size: 14px;
+        }
+        .profile-btn:hover {
+            background: rgba(255,255,255,0.35);
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        /* Модальное окно профиля — чёрный текст */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 32px;
+            padding: 30px;
+            width: 90%;
+            max-width: 400px;
+            animation: modalFadeIn 0.3s ease;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+        }
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 15px;
+        }
+        .modal-header h3 {
+            color: #1e6b5e;
+            margin: 0;
+        }
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            width: auto;
+            padding: 0;
+            margin: 0;
+        }
+        .close-modal:hover {
+            color: #333;
+            transform: none;
+        }
+        .profile-detail {
+            margin: 20px 0;
+        }
+        .profile-detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 1.1rem;
+        }
+        .profile-detail-item .label {
+            color: #555;
+        }
+        .profile-detail-item .value {
+            font-weight: bold;
+            color: #1a1a1a;
+            font-size: 1.3rem;
+        }
+        .profile-email {
+            background: #f0f6f4;
+            padding: 12px;
+            border-radius: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            word-break: break-all;
+            color: #1a1a1a;
+            font-weight: 500;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(115deg, #16635c, #218c6e);
+            color: white;
+            padding: 12px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .word-display {
+            background: #edf7f4;
+            border-radius: 32px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            box-shadow: inset 0 0 0 2px white, 0 8px 20px rgba(0,0,0,0.1);
+        }
+        .current-word {
+            font-size: 3.2rem;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 6px;
+            font-weight: bold;
+            color: #155a4a;
+        }
+        
+        .input-area input {
+            font-size: 1.7rem;
+            text-align: center;
+            font-family: monospace;
+            letter-spacing: 2px;
+            background: #fffef7;
+        }
+        
+        .feedback {
+            padding: 14px;
+            border-radius: 60px;
+            margin: 20px 0;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+        .feedback.correct {
+            background: #c8e6df;
+            color: #0f5c48;
+        }
+        .feedback.wrong {
+            background: #ffe0db;
+            color: #bc3900;
+        }
+        
+        .timer-bar {
+            height: 10px;
+            background: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        .timer-fill {
+            height: 100%;
+            width: 100%;
+            background: #2c8b6e;
+            transition: width 0.05s linear;
+        }
+        
+        .leaderboard {
+            background: #f0f6f4;
+            border-radius: 28px;
+            padding: 15px;
+            margin-top: 25px;
+            max-height: 230px;
+            overflow-y: auto;
+        }
+        .leaderboard h3 {
+            margin: 0 0 12px 0;
+            color: #1e5a50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .leaderboard ol {
+            padding-left: 20px;
+            margin: 0;
+        }
+        .leaderboard li {
+            padding: 6px 0;
+            border-bottom: 1px solid #cbdcd6;
+            font-weight: 500;
+        }
+        
+        .restart-btn, .start-btn, .stop-btn {
+            width: auto;
+            padding: 8px 18px;
+            margin-right: 8px;
+        }
+        .start-btn {
+            background: #2c8b6e;
+        }
+        .stop-btn {
+            background: #e67e22;
+        }
+        .logout-btn {
+            background: #aa6f5e;
+            width: auto;
+            padding: 8px 18px;
+        }
+        
+        .game-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .game-status {
+            background: #e9ecef;
+            padding: 8px 16px;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .game-status.waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .game-status.playing {
+            background: #d4edda;
+            color: #155724;
+        }
+        .game-status.paused {
+            background: #ffe5b4;
+            color: #cc7b00;
+        }
+        
+        .words-progress {
+            font-size: 0.8rem;
+            background: #e9ecef;
+            padding: 5px 12px;
+            border-radius: 60px;
+            margin-left: 10px;
+        }
+        
+        @media (max-width: 650px) {
+            .stats { grid-template-columns: repeat(2, 1fr); }
+            .current-word { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container game-container">
+    
+    <!-- Кнопка профиля -->
+    <div class="game-header">
+        <h2>⌨️ Тренажер скорости</h2>
+        <div class="game-controls">
+            <button class="profile-btn" onclick="openProfileModal()">👤 Профиль</button>
+            <button class="start-btn" onclick="startGameManually()">▶️ Старт</button>
+            <button class="stop-btn" onclick="stopGame()">⏸️ Стоп</button>
+            <button class="restart-btn" onclick="restartGame()">🔄 Сброс</button>
+            <button class="logout-btn" onclick="logout()">🚪 Выйти</button>
+        </div>
+    </div>
+
+    <!-- Статус игры -->
+    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <span class="game-status waiting" id="gameStatus">⏸ Ожидание старта</span>
+        <span class="words-progress" id="wordsProgress">📊 0/60 слов</span>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card"><div>🎯 Счет</div><div class="stat-value" id="score">0</div></div>
+        <div class="stat-card"><div>✅ Верно</div><div class="stat-value" id="correct">0</div></div>
+        <div class="stat-card"><div>❌ Ошибки</div><div class="stat-value" id="wrong">0</div></div>
+        <div class="stat-card"><div>⏱️ Время</div><div class="stat-value" id="timerDisplay">6.0</div></div>
+    </div>
+    <div class="timer-bar"><div class="timer-fill" id="timerFill"></div></div>
+
+    <div class="word-display">
+        <div class="current-word" id="currentWord">???</div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Нажми «Старт» чтобы играть" autocomplete="off" disabled>
+    </div>
+    <div id="feedback" class="feedback"></div>
+
+    <!-- Рейтинг -->
+    <div class="leaderboard" id="leaderboardBlock">
+        <h3>🏆 Топ-5 игроков</h3>
+        <ol id="rankList"><li>Загрузка рейтинга...</li></ol>
+    </div>
+</div>
+
+<!-- Модальное окно профиля -->
+<div id="profileModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>👤 Мой профиль</h3>
+            <button class="close-modal" onclick="closeProfileModal()">&times;</button>
+        </div>
+        <div class="profile-email" id="modalEmail">email@example.com</div>
+        <div class="profile-detail">
+            <div class="profile-detail-item">
+                <span class="label">🏆 Лучший счёт</span>
+                <span class="value" id="modalBestScore">0</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="label">🎮 Игр сыграно</span>
+                <span class="value" id="modalGamesPlayed">0</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="label">⭐ Всего очков</span>
+                <span class="value" id="modalTotalScore">0</span>
+            </div>
+            <div class="profile-detail-item">
+                <span class="label">📅 Последняя игра</span>
+                <span class="value" id="modalLastPlayed">—</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="firebase-config.js"></script>
+<script>
+    // ----- 60 слов -----
+    const WORDS_LIST = [
+        'привет','мир','код','сайт','сервер','друг','книга','дом','мама','папа',
+        'кот','пес','чай','сон','год','клавиатура','тренажер','скорость','печать','разработка',
+        'программист','браузер','интернет','компьютер','монитор','мышь','алгоритм','функция','массив','объект',
+        'ноутбук','процессор','оперативка','экран','класс','велосипед','библиотека','университет','достопримечательность','рекомендация',
+        'искусственный','интеллект','кибербезопасность','автоматизация','виртуализация','дедлайн','копирайт','менеджмент','маркетинг','бухгалтерия',
+        'презентация','документация','коммуникация','организация','квалификация','здравствуйте','пожалуйста','электростанция','фронтенд','бэкенд'
+    ];
+    
+    let remainingWords = [];
+    let currentWord = '';
+    let score = 0;
+    let correctCount = 0;
+    let wrongCount = 0;
+    let currentUserId = null;
+    let timerInterval = null;
+    let timeLeft = 6.0;
+    let isGameActive = false;
+    let canType = false;
+    
+    const userInput = document.getElementById('userInput');
+    const timerFill = document.getElementById('timerFill');
+    const timerDisplaySpan = document.getElementById('timerDisplay');
+    const gameStatusSpan = document.getElementById('gameStatus');
+    const wordsProgressSpan = document.getElementById('wordsProgress');
+    
+    function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+    
+    function initRemainingWords() {
+        remainingWords = shuffleArray([...WORDS_LIST]);
+        updateProgress();
+    }
+    
+    function updateProgress() {
+        const completed = 60 - remainingWords.length;
+        wordsProgressSpan.innerText = `📊 ${completed}/60 слов`;
+        if (remainingWords.length === 0 && isGameActive && canType) {
+            showFeedback('🏆 ПОЗДРАВЛЯЮ! Ты прошёл все 60 слов! 🎉', 'correct');
+            endGameWin();
+        }
+    }
+    
+    async function endGameWin() {
+        if (!isGameActive) return;
+        isGameActive = false;
+        canType = false;
+        stopTimer();
+        userInput.disabled = true;
+        userInput.placeholder = 'Игра завершена! Нажми «Старт»';
+        gameStatusSpan.innerText = '🏆 ПОБЕДА!';
+        gameStatusSpan.className = 'game-status waiting';
+        await saveGameResultQuick();
+    }
+    
+    function getNextWord() {
+        if (remainingWords.length === 0) return null;
+        return remainingWords.shift();
+    }
+    
+    function updateUI() {
+        document.getElementById('score').innerText = score;
+        document.getElementById('correct').innerText = correctCount;
+        document.getElementById('wrong').innerText = wrongCount;
+        updateProgress();
+    }
+    
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+    
+    function startTimer() {
+        if (timerInterval) stopTimer();
+        if (!isGameActive || !canType) return;
+        
+        timeLeft = 6.0;
+        timerDisplaySpan.innerText = timeLeft.toFixed(1);
+        timerFill.style.width = '100%';
+        
+        timerInterval = setInterval(() => {
+            if (!isGameActive || !canType) return;
+            if (timeLeft <= 0.05) {
+                stopTimer();
+                handleTimeout();
+            } else {
+                timeLeft = Math.max(0, timeLeft - 0.1);
+                timerDisplaySpan.innerText = timeLeft.toFixed(1);
+                timerFill.style.width = `${(timeLeft / 6.0) * 100}%`;
+            }
+        }, 100);
+    }
+    
+    async function handleTimeout() {
+        if (!isGameActive || !canType) return;
+        wrongCount++;
+        score = Math.max(0, score - 5);
+        updateUI();
+        showFeedback(`⏰ Время вышло! Правильно: "${currentWord}". -5 очков`, 'wrong');
+        await saveGameResultQuick();
+        
+        if (currentWord) {
+            remainingWords.push(currentWord);
+            updateProgress();
+        }
+        loadNextWord();
+    }
+    
+    async function checkAnswer() {
+        if (!isGameActive || !canType) return;
+        const userText = userInput.value.trim();
+        if (!userText) return;
+        
+        if (userText.toLowerCase() === currentWord.toLowerCase()) {
+            stopTimer();
+            score += 10;
+            correctCount++;
+            updateUI();
+            showFeedback('✅ Отлично! +10 очков', 'correct');
+            await saveGameResultQuick();
+            loadNextWord();
+        } else {
+            wrongCount++;
+            score = Math.max(0, score - 5);
+            updateUI();
+            showFeedback(`❌ Ошибка! Нужно: "${currentWord}". -5 очков`, 'wrong');
+            userInput.value = '';
+            userInput.focus();
+            await saveGameResultQuick();
+            stopTimer();
+            startTimer();
+        }
+    }
+    
+    function showFeedback(msg, type) {
+        const fb = document.getElementById('feedback');
+        fb.textContent = msg;
+        fb.className = `feedback ${type}`;
+        setTimeout(() => {
+            if (fb.className === `feedback ${type}`) {
+                fb.className = 'feedback';
+            }
+        }, 1200);
+    }
+    
+    async function loadNextWord() {
+        if (!isGameActive) return;
+        
+        const nextWord = getNextWord();
+        if (!nextWord) {
+            await endGameWin();
+            return;
+        }
+        
+        currentWord = nextWord;
+        document.getElementById('currentWord').innerText = currentWord;
+        userInput.value = '';
+        userInput.disabled = false;
+        userInput.focus();
+        stopTimer();
+        startTimer();
+    }
+    
+    async function saveGameResultQuick() {
+        if (!currentUserId) return;
+        try {
+            const userRef = db.collection('users').doc(currentUserId);
+            const doc = await userRef.get();
+            const currentData = doc.exists ? doc.data() : {};
+            const best = currentData.bestScore || 0;
+            const newBest = Math.max(best, score);
+            
+            await userRef.set({
+                email: auth.currentUser?.email,
+                totalScore: firebase.firestore.FieldValue.increment(score),
+                gamesPlayed: firebase.firestore.FieldValue.increment(1),
+                bestScore: newBest,
+                lastPlayed: new Date()
+            }, { merge: true });
+            
+            updateModalData();
+        } catch(e) { console.warn(e); }
+        loadLeaderboard();
+    }
+    
+    async function updateModalData() {
+        if (!currentUserId) return;
+        try {
+            const doc = await db.collection('users').doc(currentUserId).get();
+            if (doc.exists) {
+                const data = doc.data();
+                document.getElementById('modalBestScore').innerText = data.bestScore || 0;
+                document.getElementById('modalGamesPlayed').innerText = data.gamesPlayed || 0;
+                document.getElementById('modalTotalScore').innerText = data.totalScore || 0;
+                document.getElementById('modalEmail').innerText = data.email || auth.currentUser?.email || 'Игрок';
+                if (data.lastPlayed) {
+                    const date = data.lastPlayed.toDate();
+                    document.getElementById('modalLastPlayed').innerText = date.toLocaleDateString('ru-RU');
+                }
+            }
+        } catch(e) { console.warn(e); }
+    }
+    
+    async function loadLeaderboard() {
+        try {
+            const snapshot = await db.collection('users').orderBy('bestScore', 'desc').limit(5).get();
+            const rankList = document.getElementById('rankList');
+            rankList.innerHTML = '';
+            if (snapshot.empty) {
+                rankList.innerHTML = '<li>Нет данных</li>';
+                return;
+            }
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const emailShort = data.email ? data.email.split('@')[0] : 'игрок';
+                rankList.innerHTML += `<li>${emailShort} — 🏅 ${data.bestScore || 0} очков</li>`;
+            });
+        } catch(e) { console.warn(e); }
+    }
+    
+    function openProfileModal() {
+        updateModalData();
+        document.getElementById('profileModal').classList.add('active');
+    }
+    
+    function closeProfileModal() {
+        document.getElementById('profileModal').classList.remove('active');
+    }
+    
+    function stopGame() {
+        if (!isGameActive) {
+            showFeedback('Игра не активна. Нажми «Старт»', 'wrong');
+            return;
+        }
+        
+        if (canType) {
+            canType = false;
+            stopTimer();
+            userInput.disabled = true;
+            gameStatusSpan.innerText = '⏸ На паузе (Стоп)';
+            gameStatusSpan.className = 'game-status paused';
+            showFeedback('⏸ Игра на паузе. Нажми «Старт» чтобы продолжить', 'correct');
+        } else {
+            showFeedback('Игра уже на паузе', 'wrong');
+        }
+    }
+    
+    async function startGameManually() {
+        if (isGameActive && !canType) {
+            canType = true;
+            userInput.disabled = false;
+            userInput.focus();
+            gameStatusSpan.innerText = '🎮 Игра активна';
+            gameStatusSpan.className = 'game-status playing';
+            startTimer();
+            showFeedback('▶️ Игра продолжается!', 'correct');
+            return;
+        }
+        
+        if (isGameActive && canType) {
+            showFeedback('Игра уже идёт!', 'correct');
+            return;
+        }
+        
+        initRemainingWords();
+        score = 0;
+        correctCount = 0;
+        wrongCount = 0;
+        updateUI();
+        
+        isGameActive = true;
+        canType = true;
+        
+        const firstWord = getNextWord();
+        if (firstWord) {
+            currentWord = firstWord;
+            document.getElementById('currentWord').innerText = currentWord;
+        } else {
+            document.getElementById('currentWord').innerText = '???';
+        }
+        
+        userInput.value = '';
+        userInput.disabled = false;
+        userInput.focus();
+        
+        gameStatusSpan.innerText = '🎮 Игра активна';
+        gameStatusSpan.className = 'game-status playing';
+        
+        stopTimer();
+        startTimer();
+        showFeedback('🚀 Поехали! Слова не повторяются!', 'correct');
+    }
+    
+    async function restartGame() {
+        isGameActive = false;
+        canType = false;
+        stopTimer();
+        
+        score = 0;
+        correctCount = 0;
+        wrongCount = 0;
+        updateUI();
+        
+        currentWord = '???';
+        document.getElementById('currentWord').innerText = currentWord;
+        userInput.value = '';
+        userInput.disabled = true;
+        userInput.placeholder = 'Нажми «Старт» чтобы играть';
+        
+        gameStatusSpan.innerText = '⏸ Ожидание старта';
+        gameStatusSpan.className = 'game-status waiting';
+        
+        timerDisplaySpan.innerText = '6.0';
+        timerFill.style.width = '100%';
+        
+        initRemainingWords();
+        showFeedback('🔄 Игра сброшена. Нажми «Старт»', 'correct');
+    }
+    
+    async function logout() {
+        if (isGameActive && score > 0) {
+            await saveGameResultQuick();
+        }
+        await auth.signOut();
+        window.location.href = 'index.html';
+    }
+    
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            currentUserId = user.uid;
+            await updateModalData();
+            await loadLeaderboard();
+            
+            isGameActive = false;
+            canType = false;
+            userInput.disabled = true;
+            userInput.placeholder = 'Нажми «Старт» чтобы играть';
+            currentWord = '???';
+            document.getElementById('currentWord').innerText = currentWord;
+            gameStatusSpan.innerText = '⏸ Ожидание старта';
+            gameStatusSpan.className = 'game-status waiting';
+            score = 0;
+            correctCount = 0;
+            wrongCount = 0;
+            updateUI();
+            initRemainingWords();
+        } else {
+            window.location.href = 'login.html';
+        }
+    });
+    
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && isGameActive && canType) {
+            e.preventDefault();
+            checkAnswer();
+        }
+    });
+    
+    window.onclick = function(event) {
+        const modal = document.getElementById('profileModal');
+        if (event.target === modal) {
+            closeProfileModal();
+        }
+    }
+</script>
+</body>
+</html>

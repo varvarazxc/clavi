@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация — Тренажер</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>📝 Регистрация</h1>
+    <div id="errorMessage" class="error-message hidden"></div>
+    <div id="successMessage" class="success-message hidden"></div>
+
+    <div class="input-group">
+        <label>Email (учебный)</label>
+        <input type="email" id="email" placeholder="student@university.ru" autocomplete="off">
+    </div>
+
+    <div class="input-group">
+        <label>Пароль (8-20 символов, буквы+цифры)</label>
+        <input type="password" id="password" placeholder="минимум 8 символов">
+    </div>
+
+    <div class="input-group">
+        <label>Подтверждение пароля</label>
+        <input type="password" id="confirmPassword" placeholder="повторите пароль">
+    </div>
+
+    <button onclick="register()">🔐 Зарегистрироваться</button>
+
+    <div class="link">
+        Уже есть аккаунт? <a href="login.html">Войти</a>
+    </div>
+</div>
+
+<script src="firebase-config.js"></script>
+<script>
+    function validateEmail(email) {
+        const re = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
+        return re.test(email);
+    }
+
+    function validatePasswordComplexity(pass) {
+        const minLen = 8;
+        const maxLen = 20;
+        const hasLetter = /[A-Za-zА-Яа-я]/.test(pass);
+        const hasDigit = /[0-9]/.test(pass);
+        return pass.length >= minLen && pass.length <= maxLen && hasLetter && hasDigit;
+    }
+
+    async function register() {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const confirm = document.getElementById('confirmPassword').value;
+        const errorDiv = document.getElementById('errorMessage');
+        const successDiv = document.getElementById('successMessage');
+
+        errorDiv.classList.add('hidden');
+        successDiv.classList.add('hidden');
+
+        // === Жесткая валидация ===
+        if (!email || !password || !confirm) {
+            errorDiv.textContent = '❌ Все поля обязательны для заполнения';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        if (!validateEmail(email)) {
+            errorDiv.textContent = '❌ Введите корректный email (пример: name@domain.ru)';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        if (password !== confirm) {
+            errorDiv.textContent = '❌ Пароли не совпадают';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        if (!validatePasswordComplexity(password)) {
+            errorDiv.textContent = '❌ Пароль должен быть 8–20 символов, содержать буквы и цифры';
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        // Защита от частых запросов (cooldown 3 сек)
+        const btn = document.querySelector('button');
+        btn.disabled = true;
+        btn.textContent = 'Регистрация...';
+
+        try {
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            await db.collection('users').doc(userCredential.user.uid).set({
+                email: email,
+                totalScore: 0,
+                gamesPlayed: 0,
+                bestScore: 0,
+                createdAt: new Date(),
+                lastLogin: new Date()
+            });
+
+            successDiv.textContent = '✅ Регистрация успешна! Перенаправление...';
+            successDiv.classList.remove('hidden');
+            setTimeout(() => {
+                window.location.href = 'game.html';
+            }, 1300);
+        } catch (error) {
+            let msg = '⚠️ Ошибка регистрации: ';
+            if (error.code === 'auth/email-already-in-use') msg += 'Email уже занят';
+            else if (error.code === 'auth/invalid-email') msg += 'Неверный формат email';
+            else if (error.code === 'auth/weak-password') msg += 'Слишком простой пароль';
+            else msg += error.message;
+            errorDiv.textContent = msg;
+            errorDiv.classList.remove('hidden');
+            btn.disabled = false;
+            btn.textContent = '🔐 Зарегистрироваться';
+        }
+    }
+</script>
+</body>
+</html>
